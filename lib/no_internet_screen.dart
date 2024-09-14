@@ -32,6 +32,9 @@ class _HomeScreenState extends State<HomeScreen> {
       ..setBackgroundColor(Colors.white)
       ..setNavigationDelegate(
         NavigationDelegate(
+          onUrlChange: (change) {
+            print('URL-----------------> ${change.url}');
+          },
           onProgress: (int progress) async {
             if (await controller.canGoBack()) {
               setState(() {
