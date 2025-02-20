@@ -1,11 +1,12 @@
 import 'package:connectivity_plus/connectivity_plus.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 import 'package:get/get.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
 class InternetController extends GetxController {
   static InternetController instance = Get.find();
   var internetStatus = "".obs;
-  WebViewController? webViewController;
+  InAppWebViewController? webViewController;
   bool reloading = false;
 
   @override
@@ -15,7 +16,7 @@ class InternetController extends GetxController {
     _watchForInternet();
   }
 
-  setWebViewController(WebViewController controller) {
+  setWebViewController(InAppWebViewController controller) {
     webViewController = controller;
     update();
   }

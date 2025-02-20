@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_inappwebview/flutter_inappwebview.dart';
 
 import 'package:double_back_to_close/double_back_to_close.dart';
 import 'package:flutter/services.dart';
 import 'package:get/get.dart';
+import 'package:get/get_connect/http/src/utils/utils.dart';
 import 'package:masss/internet_controller.dart';
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -15,7 +17,7 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   InternetController internetController = Get.find();
-  late final WebViewController controller;
+  late InAppWebViewController _webViewController;
   int progressNum = 0;
   bool showAppbar = false;
   @override
@@ -27,44 +29,43 @@ class _HomeScreenState extends State<HomeScreen> {
           Brightness.dark, // Ensure icons are visible on white status bar
     ));
 
-    controller = WebViewController()
-      ..setJavaScriptMode(JavaScriptMode.unrestricted)
-      ..setBackgroundColor(Colors.white)
-      ..setNavigationDelegate(
-        NavigationDelegate(
-          onUrlChange: (change) {
-            print('URL-----------------> ${change.url}');
-          },
-          onProgress: (int progress) async {
-            if (await controller.canGoBack()) {
-              setState(() {
-                showAppbar = true;
-              });
-            } else {
-              setState(() {
-                showAppbar = false;
-              });
-            }
-            setState(() {
-              progressNum = progress;
-            });
-          },
-          onPageStarted: (String url) {},
-          onPageFinished: (String url) {},
-        ),
-      )
-      ..loadRequest(
-          Uri.parse('https://www.wizardeducationalinstitute.com/login'));
-    internetController.setWebViewController(controller);
+    // controller = WebViewController()
+    //   ..setJavaScriptMode(JavaScriptMode.unrestricted)
+    //   ..setBackgroundColor(Colors.white)
+    //   ..setNavigationDelegate(
+    //     NavigationDelegate(
+    //       onUrlChange: (change) {
+    //         print('URL-----------------> ${change.url}');
+    //       },
+    //       onProgress: (int progress) async {
+    //         if (await controller.canGoBack()) {
+    //           setState(() {
+    //             showAppbar = true;
+    //           });
+    //         } else {
+    //           setState(() {
+    //             showAppbar = false;
+    //           });
+    //         }
+    //         setState(() {
+    //           progressNum = progress;
+    //         });
+    //       },
+    //       onPageStarted: (String url) {},
+    //       onPageFinished: (String url) {},
+    //     ),
+    //   )
+    //   ..loadRequest(
+    //       Uri.parse('https://www.wizardeducationalinstitute.com/login'));
   }
 
   Future<bool> _exitApp(BuildContext context) async {
-    if (await controller.canGoBack()) {
-      controller.goBack();
+    if (await _webViewController.canGoBack()) {
+      _webViewController.goBack();
 
       return Future.value(false);
     } else {
-      if (await controller.canGoForward()) {}
+      if (await _webViewController.canGoForward()) {}
     }
 
     return Future.value(true);
@@ -84,33 +85,97 @@ class _HomeScreenState extends State<HomeScreen> {
       if (internetController.internetStatus.toString() == "NOINTERNET") {
         return const NoInternetScreen();
       }
-      return WillPopScope(
-        onWillPop: () {
-          return _exitApp(context);
+      return PopScope(
+        canPop: false,
+        onPopInvokedWithResult: (didPop, result) async {
+          if (await _webViewController.canGoBack()) {
+            _webViewController.goBack();
+
+            return Future.value(false);
+          } else {
+            SystemNavigator.pop();
+            return Future.value(true);
+          }
         },
-        child: DoubleBack(
-          onFirstBackPress: (context) {
-            const snackBar = SnackBar(
-                backgroundColor: Colors.black,
-                behavior: SnackBarBehavior.floating,
-                content: Text('Press back again to exit'));
-            ScaffoldMessenger.of(context).showSnackBar(snackBar);
-          },
-          child: SafeArea(
-            child: Scaffold(
-              //   appBar: showAppbar == true
-              //       ? AppBar(
-              //           toolbarHeight: 60,
-              //           flexibleSpace:
-              //               NavigationControls(webViewController: controller),
-              //           backgroundColor: Colors.white,
-              //         )
-              //       : null,
-              body: WebViewWidget(controller: controller),
+        child: Scaffold(
+          body: SafeArea(
+            child: InAppWebView(
+              initialUrlRequest: URLRequest(
+                url: WebUri("https://www.wizardeducationalinstitute.com/login"),
+              ),
+              onWebViewCreated: (InAppWebViewController controller) {
+                _webViewController = controller;
+                internetController.setWebViewController(_webViewController);
+              },
+              initialSettings: InAppWebViewSettings(
+                  supportZoom: false, // Disables zooming
+                  builtInZoomControls: false, // Disables zoom controls
+                  displayZoomControls: false,
+                  mediaPlaybackRequiresUserGesture: F
+                  // Hides zoom buttons (for Android)
+                  ),
+              // Enable JavaScript for the custom player
+              initialOptions: InAppWebViewGroupOptions(
+                crossPlatform: InAppWebViewOptions(
+                  javaScriptEnabled: true,
+                  mediaPlaybackRequiresUserGesture: false, // Allow autoplay
+                ),
+                android: AndroidInAppWebViewOptions(
+                  useWideViewPort: true,
+                  domStorageEnabled: true,
+                  allowContentAccess: true, // Allow cross-origin access
+                  builtInZoomControls: true,
+                  displayZoomControls: false,
+                ),
+                // ios: IOSInAppWebViewOptions(
+                //   allowsAirPlayForMediaPlayback: true,
+                //   allowsInlineMediaPlayback: true,
+                //   disallowOverScroll: true,
+                //   ignoresViewportScaleLimits: true,
+                //   allowsPictureInPictureMediaPlayback: true,
+                //   enableViewportScale: true,
+                // ),
+              ),
+              onConsoleMessage: (controller, consoleMessage) {
+                // Debugging console messages
+                print("Console Message: ${consoleMessage.message}");
+              },
+              onLoadStop: (controller, url) async {
+                // Handle onLoadStop event to confirm page has fully loaded
+                print("Loaded: $url");
+              },
             ),
           ),
         ),
       );
+
+      //   WillPopScope(
+      //     onWillPop: () {
+      //       return _exitApp(context);
+      //     },
+      //     child: DoubleBack(
+      //       onFirstBackPress: (context) {
+      //         const snackBar = SnackBar(
+      //             backgroundColor: Colors.black,
+      //             behavior: SnackBarBehavior.floating,
+      //             content: Text('Press back again to exit'));
+      //         ScaffoldMessenger.of(context).showSnackBar(snackBar);
+      //       },
+      //       child: SafeArea(
+      //         child: Scaffold(
+      //           //   appBar: showAppbar == true
+      //           //       ? AppBar(
+      //           //           toolbarHeight: 60,
+      //           //           flexibleSpace:
+      //           //               NavigationControls(webViewController: controller),
+      //           //           backgroundColor: Colors.white,
+      //           //         )
+      //           //       : null,
+      //           body: WebViewWidget(controller: controller),
+      //         ),
+      //       ),
+      //     ),
+      //   );
     });
   }
 }
